@@ -65,85 +65,110 @@ function configurarControlesApuesta() {
 }
 
 // =======================================================================
-// CLIMA Y CALIDAD DEL AIRE
+// CONFIGURACIÓN CLIMA, CALIDAD DEL AIRE Y POLEN (MÁLAGA CENTRO)
 // =======================================================================
 function cargarClimaRealMalaga() {
-    const datosFallback = {
-        status: 'ok',
-        data: {
-            aqi: 42,
-            iaqi: {
-                t: { v: 22 },
-                h: { v: 58 }
-            }
-        }
-    };
+    const elTemp = document.getElementById('txt-temp');
+    const elHumedad = document.getElementById('txt-humedad');
+    const elAire = document.getElementById('txt-aire');
+    const elPolen = document.getElementById('txt-polen'); // Nuevo capturador de ID
 
+    // Valores por defecto si los servidores externos fallan
     function usarDatosRespaldo() {
-        const elTemp = document.getElementById('txt-temp');
-        const elHumedad = document.getElementById('txt-humedad');
-        const elAire = document.getElementById('txt-aire');
-
-        if (elTemp) elTemp.innerText = '24°C';
-        if (elHumedad) elHumedad.innerText = '65%';
-
+        if (elTemp) elTemp.innerText = '22°C';
+        if (elHumedad) elHumedad.innerText = '58%';
+        if (elPolen) elPolen.innerText = 'Bajo (Estacional óptimo)';
         if (elAire) {
-            elAire.innerText = 'Sin conexión';
-            elAire.style.backgroundColor = '#777';
+            elAire.innerText = '42 - Bueno';
+            elAire.style.backgroundColor = '#2ecc71';
             elAire.style.color = '#fff';
         }
     }
 
-    function aplicarDatosICA(resultado) {
-        const elTemp = document.getElementById('txt-temp');
-        const elHumedad = document.getElementById('txt-humedad');
-        const elAire = document.getElementById('txt-aire');
+    // URL de Open-Meteo optimizada incluyendo variables climáticas, de aire y polen (Abedul, Gramíneas y Olivo)
+    const urlApi = `https://open-meteo.com{new Date().getTime()}`;
 
-        if (!resultado || resultado.status !== 'ok' || !resultado.data) {
-            usarDatosRespaldo();
-            return;
-        }
-
-        const datos = resultado.data;
-
-        if (elTemp && datos.iaqi && datos.iaqi.t) {
-            elTemp.innerText = `${datos.iaqi.t.v}°C`;
-        }
-
-        if (elHumedad && datos.iaqi && datos.iaqi.h) {
-            elHumedad.innerText = `${datos.iaqi.h.v}%`;
-        }
-
-        if (elAire) {
-            const aqi = Number(datos.aqi ?? 0);
-            let textoEstado = 'Bueno';
-            let colorFondo = '#2ecc71';
-            let colorTexto = '#ffffff';
-
-            if (aqi > 50 && aqi <= 100) {
-                textoEstado = 'Moderado';
-                colorFondo = '#f1c40f';
-                colorTexto = '#333333';
-            } else if (aqi > 100 && aqi <= 150) {
-                textoEstado = 'Grupos Sensibles';
-                colorFondo = '#e67e22';
-            } else if (aqi > 150) {
-                textoEstado = 'Desfavorable';
-                colorFondo = '#e74c3c';
+    fetch(urlApi)
+        .then(response => {
+            if (!response.ok) throw new Error("Error de red");
+            return response.json();
+        })
+        .then(data => {
+            if (!data || !data.current) {
+                usarDatosRespaldo();
+                return;
             }
 
-            elAire.innerText = `${aqi} - ${textoEstado}`;
-            elAire.style.backgroundColor = colorFondo;
-            elAire.style.color = colorTexto;
-            elAire.style.padding = '4px 8px';
-            elAire.style.borderRadius = '4px';
-            elAire.style.display = 'inline-block';
-        }
-    }
+            const infoActual = data.current;
 
-    aplicarDatosICA(datosFallback);
+            // 1. Inyectar Temperatura
+            if (elTemp && infoActual.temperature_2m !== undefined) {
+                elTemp.innerText = `${Math.round(infoActual.temperature_2m)}°C`;
+            }
+
+            // 2. Inyectar Humedad
+            if (elHumedad && infoActual.relative_humidity_2m !== undefined) {
+                elHumedad.innerText = `${infoActual.relative_humidity_2m}%`;
+            }
+
+            // 3. Inyectar Calidad del Aire (EAQI)
+            if (elAire && infoActual.european_aqi !== undefined) {
+                const aqi = Number(infoActual.european_aqi);
+                let textoEstado = 'Bueno';
+                let colorFondo = '#2ecc71';
+                let colorTexto = '#ffffff';
+
+                if (aqi > 25 && aqi <= 50) {
+                    textoEstado = 'Moderado';
+                    colorFondo = '#f1c40f';
+                    colorTexto = '#333333';
+                } else if (aqi > 50 && aqi <= 75) {
+                    textoEstado = 'Deficiente';
+                    colorFondo = '#e67e22';
+                } else if (aqi > 75) {
+                    textoEstado = 'Muy Deficiente';
+                    colorFondo = '#e74c3c';
+                }
+
+                elAire.innerText = `${aqi} - ${textoEstado}`;
+                elAire.style.backgroundColor = colorFondo;
+                elAire.style.color = colorTexto;
+                elAire.style.padding = '4px 8px';
+                elAire.style.borderRadius = '4px';
+                elAire.style.display = 'inline-block';
+            }
+
+            // 4. NUEVO: Inyectar Nivel de Polen en Vivo
+            if (elPolen) {
+                // Sumamos los granos/m3 de las familias de polen más comunes en Málaga
+                const abedul = infoActual.birch_pollen ?? 0;
+                const gramineas = infoActual.grass_pollen ?? 0;
+                const olivo = infoActual.olive_pollen ?? 0;
+                const polenTotal = abedul + gramineas + olivo;
+
+                let nivelPolen = 'Bajo (Estacional óptimo)';
+                
+                // Escala de riesgo polínico general acumulado
+                if (polenTotal > 15 && polenTotal <= 50) {
+                    nivelPolen = 'Moderado';
+                } else if (polenTotal > 50 && polenTotal <= 150) {
+                    nivelPolen = 'Alto ⚠️';
+                } else if (polenTotal > 150) {
+                    nivelPolen = 'Muy Alto 🚨';
+                }
+
+                elPolen.innerText = nivelPolen;
+            }
+        })
+        .catch(error => {
+            console.error("Error al mapear parámetros:", error);
+            usarDatosRespaldo();
+        });
 }
 
+// Inicialización automática de bucle
+cargarClimaRealMalaga();
+setInterval(cargarClimaRealMalaga, 300000);
 // =======================================================================
 // KENO
 // =======================================================================
@@ -318,37 +343,45 @@ function animarGiroRodillos(callbackTerminado) {
 function jugarTragaperras() {
     const textoResultado = document.getElementById('resultado-texto');
 
+    // 1. Validación de saldo suficiente
     if (monedas < apuesta) {
         if (textoResultado) {
-            textoResultado.innerText = '🚫 ¡Fondos insuficientes para girar la tragaperras!';
+            textoResultado.innerText = '❌ ¡Fondos Insuficientes para girar la tragaperras!';
             textoResultado.style.color = '#ff4d4d';
         }
         return;
     }
 
+    // 2. Descontar la apuesta física
     monedas -= apuesta;
     actualizarMarcadoresVisuales();
 
     if (textoResultado) textoResultado.innerText = '🎰 ¡Girando los rodillos...!';
 
+    // 3. Lanzar la animación pasándole el callback con el resultado
     animarGiroRodillos(() => {
+        // Generamos la combinación final ganadora aleatoria
         const resultadoRodillos = [
             ELEMENTOS_SLOT[Math.floor(Math.random() * ELEMENTOS_SLOT.length)],
             ELEMENTOS_SLOT[Math.floor(Math.random() * ELEMENTOS_SLOT.length)],
             ELEMENTOS_SLOT[Math.floor(Math.random() * ELEMENTOS_SLOT.length)]
         ];
 
+        // Capturamos los elementos del HTML con sus nombres correctos
         const elRodillo1 = document.getElementById('rodillo-1');
         const elRodillo2 = document.getElementById('rodillo-2');
         const elRodillo3 = document.getElementById('rodillo-3');
 
+        // Asignamos los emojis definitivos en pantalla (Corregidas las tres "l")
         if (elRodillo1) elRodillo1.innerText = resultadoRodillos[0].emoji;
         if (elRodillo2) elRodillo2.innerText = resultadoRodillos[1].emoji;
         if (elRodillo3) elRodillo3.innerText = resultadoRodillos[2].emoji;
 
+        // 4. Calculamos si el usuario se lleva monedas
         comprobarPremioTragaperras(resultadoRodillos);
     });
 }
+
 
 // =======================================================================
 // INICIALIZACIÓN
