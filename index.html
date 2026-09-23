@@ -397,7 +397,7 @@
             <h2>🌦️ Estado Ambiental: Málaga Centro</h2>
             <p style="text-align:center; color:#666;"></p>
             <div class="info-item">
-                <p><strong>🌡️ Temperatura Actual:</strong> <span id="txt-temp">Cargando...</span></p>
+                <p><strong>Temperatura Actual:</strong> <span id="txt-temp">Cargando...</span> <img id="icono-clima" src="" alt="Icono" style="width: 32px; height: 32px; vertical-align: middle; display: none;"></p>
             </div>
 
             <div class="info-item">
@@ -523,7 +523,6 @@
     modalKeno.close();
   });
 </script>
-<script>
 // CONTROL DE RELOJ
 function actualizarReloj() {
     const relojEl = document.getElementById("reloj");
@@ -532,85 +531,8 @@ function actualizarReloj() {
     relojEl.innerText = ahora.toLocaleTimeString("es-ES");
 }
 setInterval(actualizarReloj, 1000);
-
-// CONEXIÓN EN VIVO UTILIZANDO OPENWEATHERMAP API
-async function cargarClimaRealMalaga() {
-    const API_KEY = '7f5e045223718275dfa9de5e15017a74';
-    
-    // Coordenadas de Málaga Centro
-    const lat = "36.7202";
-    const lon = "-4.4203";
-
-    try {
-        // 1. PETICIÓN DEL CLIMA (Temperatura y Humedad)
-        const urlClima = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-        const respuestaClima = await fetch(urlClima);
-        if (!respuestaClima.ok) throw new Error("Error en servidor de clima OpenWeather");
-        const datosClima = await respuestaClima.json();
-
-        const temperatura = Math.round(datosClima.main.temp);
-        const humedad = datosClima.main.humidity;
-
-        document.getElementById("txt-temp").innerText = `${temperatura}°C`;
-        document.getElementById("txt-humedad").innerText = `${humedad}%`;
-
-        // 2. PETICIÓN DE CALIDAD DEL AIRE (ICA de OpenWeather)
-        const urlAire = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${API_KEY}`;
-        const respuestaAire = await fetch(urlAire);
-        if (!respuestaAire.ok) throw new Error("Error en servidor de aire OpenWeather");
-        const datosAire = await respuestaAire.json();
-
-        // OpenWeather devuelve el ICA en main.aqi (valores del 1 al 5)
-        const icaOpenWeather = datosAire.list[0].main.aqi;
-        const badgeAire = document.getElementById("txt-aire");
-
-        if (badgeAire) {
-            let estado = "Bueno";
-            let color = "#2ea44f"; // Verde
-
-            // Conversión y clasificación estándar de los niveles 1-5 de OpenWeather
-            if (icaOpenWeather === 2) {
-                estado = "Aceptable";
-                color = "#9cdb43"; // Verde claro
-            } else if (icaOpenWeather === 3) {
-                estado = "Moderado";
-                color = "#ff9500"; // Naranja
-            } else if (icaOpenWeather === 4) {
-                estado = "Deficiente";
-                color = "#ff4500"; // Rojo claro
-            } else if (icaOpenWeather === 5) {
-                estado = "Muy Deficiente";
-                color = "#cf222e"; // Rojo oscuro
-            }
-
-            badgeAire.innerText = `${estado} (Nivel ${icaOpenWeather})`;
-            badgeAire.style.backgroundColor = color;
-        }
-
-    } catch (error) {
-        console.error("Aviso: Usando datos locales de respaldo por error en la API.", error);
-        
-        // Valores de respaldo en caso de fallo
-        document.getElementById("txt-temp").innerText = "24°C";
-        document.getElementById("txt-humedad").innerText = "65%";
-
-        const badgeAire = document.getElementById("txt-aire");
-        if (badgeAire) {
-            badgeAire.innerText = "Sin conexión";
-            badgeAire.style.backgroundColor = "#777";
-        }
-    }
-}
-
-// Ejecución inmediata al cargar la estructura del documento
-window.addEventListener("DOMContentLoaded", () => {
-    actualizarReloj();
-    cargarClimaRealMalaga();
-});
-</script>
-
 <!-- 2. Tu archivo de lógica general al final para que cargue con prioridad -->
-<script src="script.js"></script>
+<script src="clima.js"></script>
 <!-- Enlace de iconos en tu <head> -->
    <!-- Enlace correcto a la librería de iconos vectoriales -->
   <link rel="stylesheet" href="https://cloudflare.com">
@@ -627,4 +549,3 @@ window.addEventListener("DOMContentLoaded", () => {
 
 </body>
 </html>
-
